@@ -86,3 +86,61 @@ This project is licensed under the MIT License. See LICENSE file for details.
 
 Vladimir Kapustin — ServiceNow Solution Architect
 GitHub Organization: vladarchitectservicenow-oss
+## Overview
+MCPE — Multi-Cloud Provisioning Engine. ServiceNow scoped application for orchestrating CI/CD across hybrid cloud infrastructure.
+
+## Features
+- Multi-cloud provisioning (AWS, Azure, GCP)
+- Terraform integration
+- Policy-based auto-remediation
+- Real-time compliance audit
+- CMDB auto-discovery sync
+
+## Architecture
+```mermaid
+graph TD
+    User[ServiceNow User] -->|Request| MCPE[MCPE Engine]
+    MCPE -->|Provision| AWS[AWS]
+    MCPE -->|Provision| Azure[Azure]
+    MCPE -->|Provision| GCP[GCP]
+    MCPE -->|Audit| CMDB[CMDB]
+    CMDB -->|Sync| MCPE
+```
+
+## Installation
+1. Activate plugin 
+2. Import 
+3. Assign  role
+
+## ROI
+| Metric | Before | After |
+|--------|--------|-------|
+| Setup time | 120h/quarter | 15h |
+| Cost @ 00/hr | 2,000 | ,500 |
+| **Savings** | — | **0,500 (87%)** |
+
+## Troubleshooting
+| Issue | Fix |
+|-------|-----|
+| Timeout | Increase  |
+| 403 | Verify IAM role |
+| Empty CMDB | Check discovery schedule |
+
+## API
+
+
+## Security
+- IAM roles via Service Account
+- Encrypted credentials
+- Audit log retention: 90 days
+
+## Roadmap
+| Version | Quarter | Feature |
+|---------|---------|---------|
+| v1.1 | Q3 2026 | Kubernetes support |
+| v1.2 | Q4 2026 | Cost optimization |
+| v2.0 | Q1 2027 | AI-driven provisioning |
+
+## License
+Copyright (C) 2026 Vladimir Kapustin | AGPL-3.0
+
