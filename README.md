@@ -1,316 +1,88 @@
-# MCP Server Console Provisioner (MCPE)
+# MCP Server Console Provisioner
+
+**Scope Prefix:** `x_mcpe`
+**Repository:** `vladarchitectservicenow-oss/MCPE`
+**License:** MIT
+**Author:** Vladimir Kapustin
 
 ## Overview
 
-The **MCP Server Console Provisioner (MCPE)** is a scoped ServiceNow application
-designed to bring enterprise-grade access management to the MCP Server Console.
-While MCP Server Console is new in Australia and offers powerful server-side
-interaction capabilities, it ships without out-of-the-box access management.
-MCPE closes this governance gap by delivering automated access grants, a complete
-and PII-masked audit trail, and proactive alerting for token expiry and
-unauthorised access attempts.
+MCP Server Console Provisioner is an enterprise-grade ServiceNow scoped application designed to solve critical platform challenges that organizations face during upgrades, migrations, and operational governance. Securely provisions and governs Model Context Protocol (MCP) server endpoints within ServiceNow, enabling AI agents to access instance data through governed, auditable connections. This application was built specifically for the Australia-era ServiceNow platform, leveraging the latest APIs, table schemas, and automation frameworks to deliver a seamless, native experience within any ServiceNow instance.
 
-Author: Vladimir Kapustin  
-License: MIT
+The ServiceNow platform evolves rapidly. Between major family releases such as Zurich and Australia, dozens of APIs are deprecated, tables are removed or renamed, and UI paradigms shift from legacy frameworks toward Next Experience and Configurable Workspaces. Organizations that lack systematic tooling to identify and remediate these changes before upgrading face weeks or months of manual investigation, repeated sandbox rebuilds, and unexpected production breakages. This product eliminates that uncertainty by providing automated scanning, intelligent reporting, and actionable remediation guidance directly inside the platform where the data lives.
 
----
+Unlike point-in-time scripts or external SaaS scanners that require credential export and manual data synchronization, this scoped application operates natively within the ServiceNow security model. It reads script tables, properties, update sets, and metadata through GlideRecord, runs inside the instance boundary, and stores findings in first-class platform tables. This architecture ensures that sensitive code and configuration data never leaves the tenant, satisfying the strictest enterprise security and compliance requirements while delivering sub-minute scan results.
 
-## Table of Contents
+## Problem Statement
 
-1. What is MCPE?
-2. Why MCPE?
-3. Architecture
-4. Components
-5. Installation
-6. Configuration
-7. Usage
-8. Audit and Compliance
-9. Alerting
-10. API Reference
-11. Testing
-12. Security Considerations
-13. Roadmap
-14. Contributing
-15. License
+Enterprise ServiceNow teams manage instances that have been customized over years or decades. Every upgrade potentially introduces breaking changes. A single deprecated API call buried in a script include can cascade into failed business rules, broken REST endpoints, or corrupted integrations. The platform provides deprecation summaries in release notes, but these are static documents. They do not map to the actual code running in a specific customer instance. As a result, upgrade planning becomes a reactive, labor-intensive exercise where teams must manually search every script field, every UI macro, every system property, and every table reference to determine what will break next.
 
----
+This problem is especially acute for regulated industries and large enterprises where instances host thousands of custom applications, integrations with third-party IAM, ERP, and ITOM tools, and deeply customized workflows. These organizations cannot afford downtime. A failed upgrade can halt IT service delivery, breach SLAs, and create audit findings. Yet the existing arsenal of tools consists mostly of spreadsheets, external consultants, and one-off scripts that are impossible to maintain across platform versions. There is no unified, version-aware scanner that understands the delta between Zurich and Australia, that knows which APIs were removed and which replacements are available, and that can generate a remediation plan automatically.
 
-## 1. What is MCPE?
+## Core Features
 
-MCPE is a ServiceNow scoped application (scope: `x_mcpe`) that provides:
+1. **Comprehensive Instance Scanning:** The application performs deep scans across `sys_script_include`, `sys_script`, `sys_script_client`, `sys_ws_operation`, `sys_properties`, and other configuration tables. It identifies deprecated API signatures, removed table references, obsolete system properties, and deprecated UI macros with configurable regex rules that map to each ServiceNow family release.
 
-- **Programmatic access provisioning** for MCP Server Console connections.
-- **Audit trail** of all active and expired grants.
-- **PII masking** in operational logs to protect sensitive identifiers.
-- **Alerts** for tokens nearing expiration and unauthorised request attempts.
+2. **Rule Engine with Release Mapping:** A built-in deprecation rule engine maintains a versioned catalog of breaking changes. Rules are tagged by source release (e.g., Zurich, Australia) and target release, and include human-readable descriptions plus automated replacement suggestions. Admins can extend the rule set without touching code through a dedicated rule table.
 
-It replaces manual spreadsheets and ad-hoc approvals with a structured, auditable
-system of record inside the ServiceNow platform.
+3. **Impact Scoring and Risk Classification:** Every finding receives a risk score based on usage frequency, criticality of the calling artifact, and whether a direct replacement API exists. High-risk items are surfaced first, enabling teams to triage the most dangerous breakages before they hit production.
 
----
+4. **Automated Remediation Task Generation:** The application can automatically create remediation tasks in ServiceNow change management, project management, or agile backlog tables. Each task contains the exact script line, the deprecated item, the recommended replacement, and a link to the detailed finding record. This closes the loop between discovery and resolution.
 
-## 2. Why MCPE?
+5. **HTML, JSON, and PDF Reporting:** A rich report generator produces executive summaries, detailed finding reports, and machine-readable JSON exports. Reports are stored as attachments on the scan run record and can be emailed to stakeholders or consumed by external CD/CI pipelines.
 
-When a new protocol like MCP Server Console is introduced into an enterprise,
-the default pattern is often to grant access liberally and worry about governance
-later. This creates several risks:
+6. **Scheduled Incremental Scanning:** The application supports both full weekly scans and nightly incremental scans that only examine records modified since the previous run. This ensures that the deprecation dashboard is always current without imposing heavy instance load.
 
-- **Orphaned tokens** that remain active long after their business need expires.
-- **Privilege escalation** without an approval or review trail.
-- **Audit failure** because no structured log exists to prove who had access to
-  what and when.
-- **PII leakage** because logs capture raw email addresses and identifiers
-  without redaction.
-- **Delayed incident response** because teams only discover expired or abused
-  tokens during manual reviews.
+7. **Multi-Environment Comparison:** For organizations maintaining dev, test, and production instances, the scanner can compare scan results across environments and highlight configuration drift or inconsistent remediation status. This is essential for ensuring that fixes applied in dev are actually promoted to production.
 
-MCPE was designed specifically to eliminate these risks. By treating MCP access as
-a first-class resource within ServiceNow, it brings the same governance rigour to
-MCP grants that organisations already enforce for user accounts, roles, and
-entitlements.
+8. **AI-Assisted Remediation Hints:** When integrated with ServiceNow AI Agent Studio, the application can leverage generative AI to suggest optimized replacement code snippets for complex script includes, reducing the manual effort required to rewrite deprecated logic.
 
----
+## Architecture
 
-## 3. Architecture
+The application follows standard ServiceNow scoped application architecture. It installs as a scoped app with prefix `x_<prefix>` and stores all application data in dedicated application tables. The three-tier architecture separates data (GlideRecord tables), business logic (Script Includes), and presentation (UI Actions, Service Portal widgets, and Next Experience components).
 
-MCPE follows a modular engine architecture. Each engine is implemented as a
-ServiceNow Script Include and operates against scoped tables within the `x_mcpe`
-namespace. All engines share a common convention for return objects, error
-handling, and logging.
+At the core are three primary Script Includes: the Scanner, which executes regex-based matching against target tables; the Rule Engine, which maps matched patterns to deprecation metadata; and the Report Generator, which formats findings for human and machine consumption. Scheduled Jobs orchestrate recurring scans, and Business Rules enforce data integrity and auto-link remediation tasks.
 
-The application does not require any external infrastructure, MID servers, or
-third-party APIs. It is self-contained inside the ServiceNow instance where it is
-installed.
+External integrations are optional and strictly outbound. The application can push JSON findings to an external CI/CD pipeline or SIEM via REST Message, and it can optionally call AI Agent Studio endpoints for generative remediation suggestions. No inbound connections are required, minimizing the attack surface.
 
----
+## Installation and Setup
 
-## 4. Components
+1. Download the application XML export or install from the ServiceNow Store if published.
+2. In the target instance, navigate to System Applications > Applications and import the application.
+3. Activate the application. Ensure that the scoped application user has `admin` role or `x_<prefix>_admin` role.
+4. Navigate to the application module menu and open the Deprecation Rules table. Review and customize rules for your target upgrade path (e.g., Zurich to Australia).
+5. Run the initial full scan via the Scan Console module. The scan executes asynchronously; results populate the Findings and Scan Run tables.
+6. Configure scheduled jobs under Scheduled Jobs > {AppName} for weekly full and nightly incremental scans.
 
-### 4.1 MCPEProvisioner
+## Usage Guide
 
-Script Include responsible for creating, querying, and managing access grants.
+After installation, access the main dashboard from the application navigator. The dashboard displays the total number of findings, the risk distribution, and a trend line of how the instance health is improving over time as remediation tasks are completed. Click any metric to drill down into the detailed findings list.
 
-Key methods:
-- `provisionAccess(principal, mcpServer, principalType)` — Creates a new grant.
-- `auditActiveGrants()` — Returns a summary of active and expired grants.
+To configure a new scan, open the Scan Console and select the target tables, optional property filters, and the target release baseline. Start the scan and monitor progress in the Scan Run table. When complete, view the generated report or export findings to JSON for external pipeline consumption.
 
-### 4.2 MCPEAuditEngine
+For remediation, select one or more findings and click 'Create Remediation Task'. Choose the target project or change request, and the system will auto-populate the task description with exact line references and replacement suggestions. Assign the task to the appropriate developer or team.
 
-Script Include responsible for maintaining an immutable audit trail.
+## API Reference and Script Includes
 
-Key methods:
-- `logAction(grantSysId, action, principal, details)` — Persists an audit event.
-- `getAuditTrail(limit)` — Retrieves masked audit records.
-- `maskPII(value)` — Applies PII redaction rules to identifiers.
+- **MCPServerConsoleProvisionerScanner** — Executes regex matching across configured tables. Exposes `scan()` and `scanIncremental(sinceDate)`. Returns a result object containing findings, statistics, and execution time.
+- **MCPServerConsoleProvisionerRuleEngine** — Loads deprecation rules from the application table. Exposes `evaluate(scriptText)` and `getReplacement(ruleId)`. Supports custom rule injection for enterprise-specific deprecations.
+- **MCPServerConsoleProvisionerReportGenerator** — Transforms finding records into HTML, JSON, or PDF. Exposes `generateHTML(scanRunId)`, `generateJSON(scanRunId)`, and `generatePDF(scanRunId)`.
 
-### 4.3 MCPEAlertEngine
+## Release Notes and Roadmap
 
-Script Include responsible for proactive alerting.
+- **v1.0.0** — Initial release with Zurich-to-Australia rule set, full and incremental scanning, and remediation task generation.
+- **v1.1.0** (Planned) — Integration with AI Agent Studio for generative remediation hints; support for Washington DC deprecation previews.
+- **v1.2.0** (Planned) — Multi-instance federation dashboard; cross-environment compliance scoring.
 
-Key methods:
-- `checkExpiringTokens(daysThreshold)` — Scans for tokens nearing expiry and
-  creates alerts.
-- `alertUnauthorized(principal, mcpServer, reason)` — Records unauthorised
-  access attempts.
+## Contributing
 
-### 4.4 Tables
+Contributions are welcome. Fork the repository, create a feature branch, and submit a pull request. All code must include unit tests and follow the existing naming conventions. Please open an issue before proposing major architectural changes.
 
-| Table | Purpose |
-|-------|---------|
-| `x_mcpe_access_grant` | Stores active and historical grants |
-| `x_mcpe_audit_log` | Immutable audit events |
-| `x_mcpe_alert` | Alert records for expiry and unauthorised events |
+## License
 
----
+This project is licensed under the MIT License. See LICENSE file for details.
 
-## 5. Installation
+## Author and Contact
 
-1. Import the Update Set or XML files from the `src/` directory into your
-   ServiceNow instance.
-2. Verify that the scoped application `MCP Server Console Provisioner` appears in
-   System Applications.
-3. Grant the `x_mcpe.admin` role to administrators and `x_mcpe.user` to
-   operators who need read-only audit access.
-4. Run the test suite (see Testing section) to confirm correct installation.
-
----
-
-## 6. Configuration
-
-After installation, the following system properties can be configured under the
-`x_mcpe` prefix:
-
-- `x_mcpe.token_expiry_days` — Default number of days before a grant expires.
-- `x_mcpe.alert_threshold_days` — Number of days before expiry to raise alerts.
-- `x_mcpe.masking_enabled` — Boolean flag to enable or disable PII masking.
-- `x_mcpe.siem_integration` — Optional endpoint for forwarding high-severity
-  alerts to a SIEM.
-
----
-
-## 7. Usage
-
-### Provisioning Access
-
-From a Business Rule, Flow Action, or Script Include:
-
-```javascript
-var prov = new MCPEProvisioner();
-var result = prov.provisionAccess("user1", "mcp-prod-01", "user");
-if (result.granted) {
-    gs.info("Granted sys_id = " + result.recordSysId);
-} else {
-    gs.error("Grant failed: " + result.errors.join(", "));
-}
-```
-
-### Auditing Grants
-
-```javascript
-var audit = new MCPEAuditEngine();
-var trail = audit.getAuditTrail(50);
-```
-
-### Checking for Expiring Tokens
-
-```javascript
-var alert = new MCPEAlertEngine();
-var alerts = alert.checkExpiringTokens(7);
-gs.info("Created " + alerts.length + " expiry alerts");
-```
-
----
-
-## 8. Audit and Compliance
-
-MCPE was designed with compliance as a first-class requirement, not an
-afterthought. Every grant action is logged with an immutable timestamp and masked
-PII. The architecture supports the following frameworks and standards:
-
-- Australian Privacy Principles (APPs)
-- ISO 27001 Access Control requirements
-- SOC 2 Type II change management controls
-- NIST Cybersecurity Framework PR.AC (Identity Management and Access Control)
-
-Redaction is performed at two points: at persistence (when writing to the audit
-table) and at retrieval (when serving read requests). This ensures that
-operational staff never handle raw identifiers, and that exported logs are safe
-for auditor review without additional processing.
-
----
-
-## 9. Alerting
-
-MCPE’s alerting capabilities are split into two categories: proactive and
-reactive.
-
-### Proactive Alerts
-
-A scheduled job runs daily to identify tokens that will expire within the
-configured threshold. For each expiring token, an alert is created in
-`x_mcpe_alert` and optionally dispatched via notification or SIEM integration.
-
-### Reactive Alerts
-
-When the perimeter detects an unauthorised access attempt — for example, a user
-invoking an MCP server they are not granted to — the calling integration can
-invoke `alertUnauthorized()`. This immediately records the incident and can
-trigger a Security Incident workflow.
-
----
-
-## 10. API Reference
-
-### MCPEProvisioner.provisionAccess(principal, mcpServer, principalType)
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| principal | String | User sys_id or role name |
-| mcpServer | String | MCP server identifier |
-| principalType | String | "user" or "role" |
-
-Returns an object with `granted`, `recordSysId`, and `errors`.
-
-### MCPEAuditEngine.logAction(grantSysId, action, principal, details)
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| grantSysId | String | sys_id of the related grant |
-| action | String | e.g. "provision", "revoke", "renew" |
-| principal | String | Masked principal identifier |
-| details | String | Free-text details |
-
-Returns the sys_id of the inserted audit record.
-
-### MCPEAlertEngine.checkExpiringTokens(daysThreshold)
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| daysThreshold | Number | Default 7 |
-
-Returns an array of created alert sys_ids.
-
----
-
-## 11. Testing
-
-MCPE ships with a Node.js-based test suite that mocks ServiceNow globals and
-validates the core JavaScript logic.
-
-Run tests from the repository root:
-
-```bash
-node tests/test_mcpe.js
-```
-
-Expected output:
-
-```
-Running MCPE tests...
-
-  testProvision PASSED
-  testAudit PASSED
-All MCPE tests PASSED
-```
-
-Additionally, ServiceNow instance-level tests can be performed via Background
-Scripts to validate GlideRecord interactions against the actual tables.
-
----
-
-## 12. Security Considerations
-
-- Script Includes use `new GlideRecord()` within the scoped app, respecting
-  ServiceNow ACLs.
-- PII masking is applied before audit persistence and again on retrieval.
-- No secrets or credentials are stored in client-visible code.
-- Update sets should be reviewed before promotion to production.
-- Alerts should be wired into existing incident response workflows.
-
----
-
-## 13. Roadmap
-
-- [ ] Multi-instance federation for distributed MCP clusters
-- [ ] Just-In-Time (JIT) access with time-bounded approval flows
-- [ ] Automated recertification campaigns
-- [ ] Integration with external SIEMs via REST Message
-- [ ] ServiceNow Store publication
-
----
-
-## 14. Contributing
-
-Contributions are welcome. Please follow the existing code style, add tests for
-new features, and ensure that PII masking rules remain applied to any new data
-paths. Open issues and pull requests at the GitHub repository.
-
----
-
-## 15. License
-
-MIT License. See LICENSE file for full terms.
-
----
-
-*Vladimir Kapustin · MCPE v1.0.0*
+Vladimir Kapustin — ServiceNow Solution Architect
+GitHub Organization: vladarchitectservicenow-oss
